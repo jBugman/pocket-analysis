@@ -19,9 +19,9 @@ func dump(model analysis.Model, filename string) {
 	}
 	defer f.Close()
 
-	for tag, counter := range model {
+	for tag, counter := range model.Source {
 		f.WriteString(tag + "\n")
-		for _, countItem := range counter.Items() {
+		for _, countItem := range counter.ItemsWithThreshold(1) {
 			f.WriteString(fmt.Sprintf("\t%s: %d\n", countItem.Key, countItem.Count))
 		}
 		f.WriteString("\n")
@@ -38,7 +38,8 @@ func main() {
 	}
 	fmt.Printf("Total items: %d\n", len(items))
 
-	corpus := analysis.ConvertItems(items[0:50])
+	corpus := analysis.ConvertItems(items)
 	model := analysis.TrainModel(corpus)
-	dump(model, "model.txt")
+	dump(model, "model-src.txt")
+	model.Dump("model.txt")
 }

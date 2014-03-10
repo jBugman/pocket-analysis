@@ -1,7 +1,10 @@
 package analysis
 
 import (
+	"fmt"
+	"github.com/deckarep/golang-set"
 	"github.com/jBugman/go-pocket/pocket"
+	"os"
 	"strings"
 )
 
@@ -22,18 +25,40 @@ func ConvertItems(source []pocket.Item) (result []Item) {
 	return
 }
 
+func (this *Item) tokens() []string {
+	tokenList := []string{}
+	for _, x := range append(getTockens(this.Title), getTockens(this.Excerpt)...) {
+		if !trash.Contains(x) {
+			tokenList = append(tokenList, x)
+		}
+	}
+	return tokenList
+}
+
+var trash = mapset.NewSetFromSlice([]interface{}{"-", "--", "·", "—", "–", "/"})
+var stopwords = mapset.NewSetFromSlice([]interface{}{
+	"the", "to", "a", "i", "is", "that", "of",
+	"it", "and", "or", "at", "in", "for", "we", "as",
+})
+
 func (this *Item) Tokens() []string {
-	return append(getTockens(this.Title), getTockens(this.Excerpt)...)
+	tokenList := []string{}
+	for _, x := range this.tokens() {
+		if !stopwords.Contains(x) {
+			tokenList = append(tokenList, x)
+		}
+	}
+	return append(tokenList, this.Bigrams()...)
 }
 
 func (this *Item) Bigrams() []string {
-	return bigrams(this.Tokens())
+	return bigrams(this.tokens())
 }
 
 func getTockens(source string) (result []string) {
 	for _, value := range strings.Fields(source) {
 		token := strings.ToLower(value)
-		token = strings.Trim(token, "()[]{}“”«»")
+		token = strings.Trim(token, "()[]{}“”«»\"'`")
 		token = strings.TrimRight(token, ",.!?;:")
 		token = strings.TrimSuffix(token, "’s")
 		result = append(result, token)
@@ -49,9 +74,14 @@ func bigrams(tokens []string) (result []string) {
 	return
 }
 
-type Model map[string]Counter
+type ModelSource map[string]Counter
+type Features map[string]mapset.Set
+type Model struct {
+	Source   ModelSource
+	Features Features
+}
 
-func (this Model) Add(tag string, key string) {
+func (this ModelSource) Add(tag string, key string) {
 	counter, exists := this[tag]
 	if exists {
 		counter.Add(key)
@@ -60,14 +90,57 @@ func (this Model) Add(tag string, key string) {
 	}
 }
 
-func TrainModel(items []Item) (result Model) {
-	result = Model{}
+func TrainModel(items []Item) (model Model) {
+	model = Model{Source: ModelSource{}}
 	for _, item := range items {
 		for _, tag := range item.Tags {
-			for _, bigram := range item.Bigrams() {
-				result.Add(tag, bigram)
+			for _, bigram := range item.Tokens() {
+				model.Source.Add(tag, bigram)
 			}
 		}
 	}
+	model.crossfit()
 	return
+}
+
+const threshold = 0
+
+func (this *Model) crossfit() {
+	rawFeatures := Features{}
+	for tag, counter := range this.Source {
+		items := mapset.NewSet()
+		for _, countItem := range counter.ItemsWithThreshold(threshold) {
+			items.Add(countItem.Key)
+		}
+		rawFeatures[tag] = items
+	}
+
+	this.Features = Features{}
+	for tag, features := range rawFeatures {
+		for otherTag, otherFeatures := range rawFeatures {
+			if otherTag != tag {
+				features = features.Difference(otherFeatures)
+			}
+		}
+		this.Features[tag] = features
+	}
+}
+
+func (this *Model) Dump(filename string) {
+	fmt.Println("Dumping model to " + filename)
+
+	f, err := os.Create(filename)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	for tag, features := range this.Features {
+		f.WriteString(tag + "\n")
+		// sort.Sort(features)
+		for x := range features.Iter() {
+			f.WriteString(fmt.Sprintf("\t%s\n", x))
+		}
+		f.WriteString("\n")
+	}
 }

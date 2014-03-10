@@ -14,8 +14,14 @@ func (this Counter) Add(key string) {
 }
 
 func (this Counter) Items() (result CounterItems) {
+	return this.ItemsWithThreshold(0)
+}
+
+func (this Counter) ItemsWithThreshold(threshold int) (result CounterItems) {
 	for k, v := range this {
-		result = append(result, CounterItem{Key: k, Count: v})
+		if v >= threshold {
+			result = append(result, CounterItem{Key: k, Count: v})
+		}
 	}
 	sort.Sort(sort.Reverse(result))
 	return
