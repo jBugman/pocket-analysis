@@ -7,8 +7,8 @@ import (
 	"pocket/analysis"
 )
 
-const CONSUMER_KEY = "13888-e9be4bfc69cef5f8917d1ca6"
-const ACCESS_TOKEN = "581257dc-0915-6b6c-bbc9-b12a22"
+const CONSUMER_KEY = "<my-key>"
+const ACCESS_TOKEN = "<access-token>"
 
 func dump(model analysis.Model, filename string) {
 	fmt.Println("Dumping model to " + filename)
