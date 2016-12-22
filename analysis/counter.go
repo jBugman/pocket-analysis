@@ -9,6 +9,8 @@ type CounterItem struct {
 	Count int
 }
 
+type Weights map[string]float64
+
 func (this Counter) Add(key string) {
 	this[key] = this[key] + 1
 }
@@ -24,6 +26,22 @@ func (this Counter) ItemsWithThreshold(threshold int) (result CounterItems) {
 		}
 	}
 	sort.Sort(sort.Reverse(result))
+	return
+}
+
+func (this Counter) Weights(threshold float64) (result Weights) {
+	sum := 0
+	for _, v := range this {
+		sum = sum + v
+	}
+	sumF := float64(sum)
+	result = Weights{}
+	for k, v := range this {
+		weight := float64(v) / sumF
+		if (threshold < 0 && weight <= -threshold) || (threshold >= 0 && weight >= threshold) {
+			result[k] = weight
+		}
+	}
 	return
 }
 

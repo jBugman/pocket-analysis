@@ -42,4 +42,12 @@ func main() {
 	model := analysis.TrainModel(corpus)
 	dump(model, "model-src.txt")
 	model.Dump("model.txt")
+
+	for _, item := range corpus {
+		if len(item.Tags) == 0 {
+			fmt.Println(item)
+			fmt.Println(model.Predict(item))
+			println()
+		}
+	}
 }

@@ -99,22 +99,28 @@ func TrainModel(items []Item) (model Model) {
 			}
 		}
 	}
-	model.crossfit()
+
+	features := model.crossfit()
+	model.Features = features
+	// model.crossEliminate(features)
 	return
 }
 
-const threshold = 0
-
-func (this *Model) crossfit() {
+func (this *Model) crossfit() Features {
 	rawFeatures := Features{}
 	for tag, counter := range this.Source {
 		items := mapset.NewSet()
-		for _, countItem := range counter.ItemsWithThreshold(threshold) {
-			items.Add(countItem.Key)
+		// for _, countItem := range counter.ItemsWithThreshold(1) {
+			// items.Add(countItem.Key)
+		for k, _ := range counter.Weights(-0.025) {
+			items.Add(k)
 		}
 		rawFeatures[tag] = items
 	}
+	return rawFeatures
+}
 
+func (this *Model) crossEliminate(rawFeatures Features) {
 	this.Features = Features{}
 	for tag, features := range rawFeatures {
 		for otherTag, otherFeatures := range rawFeatures {
@@ -124,6 +130,21 @@ func (this *Model) crossfit() {
 		}
 		this.Features[tag] = features
 	}
+}
+
+func (this *Model) Predict(item Item) Weights {
+	result := Counter{}
+	tokens := item.Tokens()
+	for _, token := range tokens {
+		for tag, features := range this.Features {
+			for feature := range features.Iter() {
+				if token == feature {
+					result.Add(tag)
+				}
+			}
+		}
+	}
+	return result.Weights(0.05)
 }
 
 func (this *Model) Dump(filename string) {
